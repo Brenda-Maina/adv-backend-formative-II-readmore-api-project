@@ -1,0 +1,351 @@
+@baseUrl = http://localhost:3000
+@fakeId = 64b7f0c2a1b2c3d4e5f60718
+
+### ===== Part 0: health check =====
+GET {{baseUrl}}/
+
+### ===== Part 2: AUTHORS =====
+
+### Create author 1 (expect 201)
+# @name createAuthor1
+POST {{baseUrl}}/authors
+Content-Type: application/json
+
+{
+  "name": "Chinua Achebe",
+  "country": "Nigeria",
+  "bio": "Nigerian novelist and author of Things Fall Apart."
+}
+
+### Create author 2 (expect 201)
+# @name createAuthor2
+POST {{baseUrl}}/authors
+Content-Type: application/json
+
+{
+  "name": "Ngugi wa Thiong'o",
+  "country": "Kenya",
+  "bio": "Kenyan writer and academic."
+}
+
+### Create author 3, will have no books (expect 201)
+# @name createAuthor3
+POST {{baseUrl}}/authors
+Content-Type: application/json
+
+{
+  "name": "Author Without Books",
+  "country": "Rwanda"
+}
+
+### Create author with missing name (expect 400)
+POST {{baseUrl}}/authors
+Content-Type: application/json
+
+{
+  "country": "Kenya"
+}
+
+### Get all authors (expect 200)
+GET {{baseUrl}}/authors
+
+### Get one author (expect 200)
+GET {{baseUrl}}/authors/{{createAuthor1.response.body.$._id}}
+
+### Author id that does not exist (expect 404)
+GET {{baseUrl}}/authors/{{fakeId}}
+
+### Malformed author id (expect 400)
+GET {{baseUrl}}/authors/not-a-real-id
+
+### Update author (expect 200)
+PUT {{baseUrl}}/authors/{{createAuthor1.response.body.$._id}}
+Content-Type: application/json
+
+{
+  "bio": "Nigerian novelist, poet and critic. Author of Things Fall Apart."
+}
+
+### ===== Part 3: BOOKS =====
+
+### Create book 1 (expect 201, author is populated)
+# @name createBook1
+POST {{baseUrl}}/books
+Content-Type: application/json
+
+{
+  "title": "The Silent Sea",
+  "genre": "Thriller",
+  "price": 24.99,
+  "publishedYear": 2021,
+  "author": "{{createAuthor1.response.body.$._id}}"
+}
+
+### Create book 2 (expect 201)
+POST {{baseUrl}}/books
+Content-Type: application/json
+
+{
+  "title": "Echoes of Dawn",
+  "genre": "Drama",
+  "price": 12.5,
+  "publishedYear": 2019,
+  "author": "{{createAuthor1.response.body.$._id}}"
+}
+
+### Create book 3 (expect 201)
+POST {{baseUrl}}/books
+Content-Type: application/json
+
+{
+  "title": "Sea of Secrets",
+  "genre": "Thriller",
+  "price": 29.99,
+  "publishedYear": 2015,
+  "author": "{{createAuthor2.response.body.$._id}}"
+}
+
+### Create book 4 (expect 201)
+POST {{baseUrl}}/books
+Content-Type: application/json
+
+{
+  "title": "Night Train",
+  "genre": "Thriller",
+  "price": 45,
+  "publishedYear": 2020,
+  "author": "{{createAuthor2.response.body.$._id}}"
+}
+
+### ===== Part 4: BUSINESS RULES =====
+
+### Rule 1: orphan book, author id does not exist (expect 400)
+POST {{baseUrl}}/books
+Content-Type: application/json
+
+{
+  "title": "Ghost Book",
+  "genre": "Horror",
+  "price": 10,
+  "publishedYear": 2020,
+  "author": "{{fakeId}}"
+}
+
+### Rule 2: duplicate title for same author, different case (expect 409)
+POST {{baseUrl}}/books
+Content-Type: application/json
+
+{
+  "title": "the silent sea",
+  "genre": "Thriller",
+  "price": 20,
+  "publishedYear": 2020,
+  "author": "{{createAuthor1.response.body.$._id}}"
+}
+
+### Rule 2: same title, DIFFERENT author is allowed (expect 201)
+POST {{baseUrl}}/books
+Content-Type: application/json
+
+{
+  "title": "The Silent Sea",
+  "genre": "Mystery",
+  "price": 15,
+  "publishedYear": 2022,
+  "author": "{{createAuthor2.response.body.$._id}}"
+}
+
+### Rule 3: price is zero (expect 422)
+POST {{baseUrl}}/books
+Content-Type: application/json
+
+{
+  "title": "Free Book",
+  "genre": "Drama",
+  "price": 0,
+  "publishedYear": 2020,
+  "author": "{{createAuthor1.response.body.$._id}}"
+}
+
+### Rule 3: negative price (expect 422)
+POST {{baseUrl}}/books
+Content-Type: application/json
+
+{
+  "title": "Negative Book",
+  "genre": "Drama",
+  "price": -5,
+  "publishedYear": 2020,
+  "author": "{{createAuthor1.response.body.$._id}}"
+}
+
+### Rule 3: year in the future (expect 422)
+POST {{baseUrl}}/books
+Content-Type: application/json
+
+{
+  "title": "Future Book",
+  "genre": "Sci-Fi",
+  "price": 10,
+  "publishedYear": 2999,
+  "author": "{{createAuthor1.response.body.$._id}}"
+}
+
+### Rule 3: year before 1450 (expect 422)
+POST {{baseUrl}}/books
+Content-Type: application/json
+
+{
+  "title": "Ancient Book",
+  "genre": "History",
+  "price": 10,
+  "publishedYear": 1200,
+  "author": "{{createAuthor1.response.body.$._id}}"
+}
+
+### Missing title (expect 400)
+POST {{baseUrl}}/books
+Content-Type: application/json
+
+{
+  "genre": "Drama",
+  "price": 10,
+  "publishedYear": 2020,
+  "author": "{{createAuthor1.response.body.$._id}}"
+}
+
+### ===== Reading, updating, deleting books =====
+
+### Get all books (expect 200, authors populated)
+GET {{baseUrl}}/books
+
+### Get one book (expect 200, author populated)
+GET {{baseUrl}}/books/{{createBook1.response.body.$._id}}
+
+### Book id that does not exist (expect 404)
+GET {{baseUrl}}/books/{{fakeId}}
+
+### Create a throwaway book for update/delete tests (expect 201)
+# @name createTempBook
+POST {{baseUrl}}/books
+Content-Type: application/json
+
+{
+  "title": "Temporary Book",
+  "genre": "Drama",
+  "price": 9.99,
+  "publishedYear": 2018,
+  "author": "{{createAuthor1.response.body.$._id}}"
+}
+
+### Update the throwaway book (expect 200)
+PUT {{baseUrl}}/books/{{createTempBook.response.body.$._id}}
+Content-Type: application/json
+
+{
+  "price": 11.5
+}
+
+### Update: rename into a duplicate title (expect 409)
+PUT {{baseUrl}}/books/{{createTempBook.response.body.$._id}}
+Content-Type: application/json
+
+{
+  "title": "THE SILENT SEA"
+}
+
+### Update: price rule still enforced (expect 422)
+PUT {{baseUrl}}/books/{{createTempBook.response.body.$._id}}
+Content-Type: application/json
+
+{
+  "price": -1
+}
+
+### Update: move to an author that does not exist (expect 400)
+PUT {{baseUrl}}/books/{{createTempBook.response.body.$._id}}
+Content-Type: application/json
+
+{
+  "author": "{{fakeId}}"
+}
+
+### Update a book that does not exist (expect 404)
+PUT {{baseUrl}}/books/{{fakeId}}
+Content-Type: application/json
+
+{
+  "price": 10
+}
+
+### Delete the throwaway book (expect 200)
+DELETE {{baseUrl}}/books/{{createTempBook.response.body.$._id}}
+
+### Delete a book that does not exist (expect 404)
+DELETE {{baseUrl}}/books/{{fakeId}}
+
+### ===== Requirement 5: search, filter, sort, pagination =====
+
+### Combined filters (expect only Thriller + 10..30 + title has "sea", cheapest first)
+GET {{baseUrl}}/books?genre=Thriller&minPrice=10&maxPrice=30&search=sea&sort=price&order=asc
+
+### Only genre
+GET {{baseUrl}}/books?genre=thriller
+
+### Only minPrice
+GET {{baseUrl}}/books?minPrice=25
+
+### Only maxPrice
+GET {{baseUrl}}/books?maxPrice=15
+
+### By author id
+GET {{baseUrl}}/books?author={{createAuthor1.response.body.$._id}}
+
+### Sort by title, descending
+GET {{baseUrl}}/books?sort=title&order=desc
+
+### Sort by publishedYear
+GET {{baseUrl}}/books?sort=publishedYear&order=asc
+
+### Invalid sort field (expect 400)
+GET {{baseUrl}}/books?sort=colour
+
+### minPrice higher than maxPrice (expect 400)
+GET {{baseUrl}}/books?minPrice=50&maxPrice=10
+
+### Pagination: page 1, 2 per page
+GET {{baseUrl}}/books?page=1&limit=2
+
+### Pagination: page 2, 2 per page
+GET {{baseUrl}}/books?page=2&limit=2
+
+### Pagination + filter together
+GET {{baseUrl}}/books?genre=Thriller&sort=price&order=desc&page=1&limit=2
+
+### ===== Linking endpoint and Requirement 6: stats =====
+
+### All books by author 1 (expect 200)
+GET {{baseUrl}}/authors/{{createAuthor1.response.body.$._id}}/books
+
+### Books of an author that does not exist (expect 404)
+GET {{baseUrl}}/authors/{{fakeId}}/books
+
+### Stats for author 1 (expect 200)
+GET {{baseUrl}}/authors/{{createAuthor1.response.body.$._id}}/stats
+
+### Stats for author with no books (expect 200, zero/null values, no crash)
+GET {{baseUrl}}/authors/{{createAuthor3.response.body.$._id}}/stats
+
+### Stats for author that does not exist (expect 404)
+GET {{baseUrl}}/authors/{{fakeId}}/stats
+
+### ===== Requirement 4: deleting authors =====
+
+### Delete author who still has books (expect 409)
+DELETE {{baseUrl}}/authors/{{createAuthor1.response.body.$._id}}
+
+### Delete author with no books (expect 200)
+DELETE {{baseUrl}}/authors/{{createAuthor3.response.body.$._id}}
+
+### Delete author that does not exist (expect 404)
+DELETE {{baseUrl}}/authors/{{fakeId}}
