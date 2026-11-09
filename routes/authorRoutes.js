@@ -9,5 +9,6 @@ router.get('/:id', authorController.getAuthorById);
 router.put('/:id', authorController.updateAuthor);
 router.get('/:id/books', authorController.getAuthorBooks);
 router.delete('/:id', authorController.deleteAuthor);
+router.get('/:id/stats', authorController.getAuthorStats);
 
 module.exports = router;

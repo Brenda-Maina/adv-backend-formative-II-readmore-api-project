@@ -62,3 +62,42 @@ exports.deleteAuthor = asyncHandler(async (req, res) => {
   await author.deleteOne();
   res.json({ message: `Author "${author.name}" deleted` });
 });
+
+exports.getAuthorStats = asyncHandler(async (req, res) => {
+  const author = await findAuthorOrFail(req.params.id);
+
+  // Sorting by price first lets $first / $last pick the cheapest / most expensive title.
+  const [stats] = await Book.aggregate([
+    { $match: { author: author._id } },
+    { $sort: { price: 1, title: 1 } },
+    {
+      $group: {
+        _id: '$author',
+        bookCount: { $sum: 1 },
+        averagePrice: { $avg: '$price' },
+        cheapestBook: { $first: '$title' },
+        mostExpensiveBook: { $last: '$title' },
+      },
+    },
+  ]);
+
+  // No books: the count is 0 and the price-based fields are null ("no value"),
+  // because 0 would wrongly suggest the books are free.
+  if (!stats) {
+    return res.json({
+      author: author.name,
+      bookCount: 0,
+      averagePrice: null,
+      cheapestBook: null,
+      mostExpensiveBook: null,
+    });
+  }
+
+  res.json({
+    author: author.name,
+    bookCount: stats.bookCount,
+    averagePrice: Math.round(stats.averagePrice * 100) / 100,
+    cheapestBook: stats.cheapestBook,
+    mostExpensiveBook: stats.mostExpensiveBook,
+  });
+});
