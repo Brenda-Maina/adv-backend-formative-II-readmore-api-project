@@ -74,12 +74,38 @@ exports.createBook = asyncHandler(async (req, res) => {
 });
 
 // ===== List books: START =====
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 10;
+const MAX_LIMIT = 100;
+
+const parsePositiveInteger = (value, name, fallback) => {
+  if (!isPresent(value)) {
+    return fallback;
+  }
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 1) {
+    throw new HttpError(400, `${name} must be a positive whole number`);
+  }
+  return number;
+};
+
 exports.getBooks = asyncHandler(async (req, res) => {
   const filter = buildBookFilter(req.query);
   const sort = buildBookSort(req.query);
+  const page = parsePositiveInteger(req.query.page, 'page', DEFAULT_PAGE);
+  const limit = Math.min(parsePositiveInteger(req.query.limit, 'limit', DEFAULT_LIMIT), MAX_LIMIT);
 
-  const books = await Book.find(filter).collation(CASE_INSENSITIVE).sort(sort).populate('author');
-  res.json(books);
+  const [books, total] = await Promise.all([
+    Book.find(filter)
+      .collation(CASE_INSENSITIVE)
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate('author'),
+    Book.countDocuments(filter),
+  ]);
+
+  res.json({ page, limit, total, totalPages: Math.ceil(total / limit), results: books });
 });
 // ===== List books: END =====
 
