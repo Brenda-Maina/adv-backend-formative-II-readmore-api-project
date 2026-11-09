@@ -102,3 +102,9 @@ exports.updateBook = asyncHandler(async (req, res) => {
   await book.populate('author');
   res.json(book);
 });
+
+exports.deleteBook = asyncHandler(async (req, res) => {
+  const book = await findBookOrFail(req.params.id);
+  await book.deleteOne();
+  res.json({ message: `Book "${book.title}" deleted` });
+});
