@@ -79,3 +79,17 @@ exports.getBooks = asyncHandler(async (req, res) => {
   res.json(books);
 });
 // ===== List books: END =====
+
+const findBookOrFail = async (id) => {
+  const book = await Book.findById(id);
+  if (!book) {
+    throw new HttpError(404, `Book not found with id ${id}`);
+  }
+  return book;
+};
+
+exports.getBookById = asyncHandler(async (req, res) => {
+  const book = await findBookOrFail(req.params.id);
+  await book.populate('author');
+  res.json(book);
+});
