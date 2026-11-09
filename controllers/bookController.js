@@ -75,7 +75,10 @@ exports.createBook = asyncHandler(async (req, res) => {
 
 // ===== List books: START =====
 exports.getBooks = asyncHandler(async (req, res) => {
-  const books = await Book.find().sort({ createdAt: 1 }).populate('author');
+  const filter = buildBookFilter(req.query);
+  const sort = buildBookSort(req.query);
+
+  const books = await Book.find(filter).collation(CASE_INSENSITIVE).sort(sort).populate('author');
   res.json(books);
 });
 // ===== List books: END =====
@@ -108,3 +111,68 @@ exports.deleteBook = asyncHandler(async (req, res) => {
   await book.deleteOne();
   res.json({ message: `Book "${book.title}" deleted` });
 });
+
+// ===== Filtering and sorting helpers: START =====
+const SORTABLE_FIELDS = ['price', 'title', 'publishedYear'];
+const CASE_INSENSITIVE = { locale: 'en', strength: 2 };
+
+const isPresent = (value) => value !== undefined && value !== '';
+
+// Stops characters like "." or "(" in user input from acting as regex symbols.
+const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const parseNumber = (value, name) => {
+  const number = Number(value);
+  if (Number.isNaN(number)) {
+    throw new HttpError(400, `${name} must be a number`);
+  }
+  return number;
+};
+
+// Builds the MongoDB filter from whichever query params were actually sent.
+const buildBookFilter = ({ genre, author, search, minPrice, maxPrice }) => {
+  const filter = {};
+
+  if (isPresent(genre)) {
+    filter.genre = new RegExp(`^${escapeRegex(String(genre).trim())}$`, 'i');
+  }
+
+  if (isPresent(author)) {
+    filter.author = author;
+  }
+
+  if (isPresent(search)) {
+    filter.title = new RegExp(escapeRegex(String(search).trim()), 'i');
+  }
+
+  if (isPresent(minPrice) || isPresent(maxPrice)) {
+    filter.price = {};
+    if (isPresent(minPrice)) {
+      filter.price.$gte = parseNumber(minPrice, 'minPrice');
+    }
+    if (isPresent(maxPrice)) {
+      filter.price.$lte = parseNumber(maxPrice, 'maxPrice');
+    }
+    if (filter.price.$gte > filter.price.$lte) {
+      throw new HttpError(400, 'minPrice cannot be greater than maxPrice');
+    }
+  }
+
+  return filter;
+};
+
+const buildBookSort = ({ sort, order }) => {
+  if (isPresent(sort) && !SORTABLE_FIELDS.includes(sort)) {
+    throw new HttpError(400, `sort must be one of: ${SORTABLE_FIELDS.join(', ')}`);
+  }
+  if (isPresent(order) && !['asc', 'desc'].includes(order)) {
+    throw new HttpError(400, 'order must be "asc" or "desc"');
+  }
+
+  const field = isPresent(sort) ? sort : 'createdAt';
+  const direction = order === 'desc' ? -1 : 1;
+
+  // _id is a tie-breaker so equal values always come back in a stable order.
+  return { [field]: direction, _id: 1 };
+};
+// ===== Filtering and sorting helpers: END =====
