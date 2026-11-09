@@ -13,7 +13,14 @@ const pickBookFields = (body = {}) =>
 
 // ===== Business rules: START =====
 const assertBookIsAllowed = async (book) => {
+  // 400: required fields present and types correct
   await book.validate();
+
+  // 400: the author must really exist (no orphan books)
+  const authorExists = await Author.exists({ _id: book.author });
+  if (!authorExists) {
+    throw new HttpError(400, `Author with id ${book.author} does not exist`);
+  }
 };
 // ===== Business rules: END =====
 
