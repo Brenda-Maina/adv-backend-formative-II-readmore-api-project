@@ -40,3 +40,9 @@ exports.updateAuthor = asyncHandler(async (req, res) => {
   await author.save();
   res.json(author);
 });
+
+exports.getAuthorBooks = asyncHandler(async (req, res) => {
+  const author = await findAuthorOrFail(req.params.id);
+  const books = await Book.find({ author: author._id }).sort({ title: 1 });
+  res.json(books);
+});
