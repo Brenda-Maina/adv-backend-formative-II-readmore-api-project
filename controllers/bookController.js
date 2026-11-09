@@ -36,6 +36,8 @@ const assertBusinessRules = (book) => {
   }
 };
 
+// Order matters: shape (400) -> business rules (422) -> author exists (400) -> duplicate (409).
+// The duplicate check needs a valid author, so it comes last.
 const assertBookIsAllowed = async (book) => {
   // 400: required fields present and types correct
   await book.validate();
@@ -47,6 +49,18 @@ const assertBookIsAllowed = async (book) => {
   const authorExists = await Author.exists({ _id: book.author });
   if (!authorExists) {
     throw new HttpError(400, `Author with id ${book.author} does not exist`);
+  }
+
+  // 409: same author + same title, ignoring case. Excluding this book's own _id
+  // lets an update keep its own title.
+  const duplicate = await Book.findOne({
+    author: book.author,
+    title: book.title,
+    _id: { $ne: book._id },
+  }).collation({ locale: 'en', strength: 2 });
+
+  if (duplicate) {
+    throw new HttpError(409, `This author already has a book titled "${duplicate.title}"`);
   }
 };
 // ===== Business rules: END =====

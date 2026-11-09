@@ -30,4 +30,12 @@ const bookSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Safety net at database level: one title per author, ignoring upper/lower case.
+// The controller checks first for a friendly 409; this index also stops two
+// simultaneous requests from slipping a duplicate through.
+bookSchema.index(
+  { author: 1, title: 1 },
+  { unique: true, collation: { locale: 'en', strength: 2 } }
+);
+
 module.exports = mongoose.model('Book', bookSchema);
