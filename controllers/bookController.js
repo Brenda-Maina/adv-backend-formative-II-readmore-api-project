@@ -93,3 +93,12 @@ exports.getBookById = asyncHandler(async (req, res) => {
   await book.populate('author');
   res.json(book);
 });
+
+exports.updateBook = asyncHandler(async (req, res) => {
+  const book = await findBookOrFail(req.params.id);
+  book.set(pickBookFields(req.body));
+  await assertBookIsAllowed(book);
+  await book.save();
+  await book.populate('author');
+  res.json(book);
+});
