@@ -33,3 +33,10 @@ exports.getAuthorById = asyncHandler(async (req, res) => {
   const author = await findAuthorOrFail(req.params.id);
   res.json(author);
 });
+
+exports.updateAuthor = asyncHandler(async (req, res) => {
+  const author = await findAuthorOrFail(req.params.id);
+  author.set(pickAuthorFields(req.body));
+  await author.save();
+  res.json(author);
+});
