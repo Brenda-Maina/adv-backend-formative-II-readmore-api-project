@@ -72,3 +72,10 @@ exports.createBook = asyncHandler(async (req, res) => {
   await book.populate('author');
   res.status(201).json(book);
 });
+
+// ===== List books: START =====
+exports.getBooks = asyncHandler(async (req, res) => {
+  const books = await Book.find().sort({ createdAt: 1 }).populate('author');
+  res.json(books);
+});
+// ===== List books: END =====
