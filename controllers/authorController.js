@@ -46,3 +46,19 @@ exports.getAuthorBooks = asyncHandler(async (req, res) => {
   const books = await Book.find({ author: author._id }).sort({ title: 1 });
   res.json(books);
 });
+
+// Delete policy (Option A): block the delete while the author still has books.
+exports.deleteAuthor = asyncHandler(async (req, res) => {
+  const author = await findAuthorOrFail(req.params.id);
+
+  const bookCount = await Book.countDocuments({ author: author._id });
+  if (bookCount > 0) {
+    throw new HttpError(
+      409,
+      `Cannot delete "${author.name}" because they still have ${bookCount} book(s). Delete or move those books first.`
+    );
+  }
+
+  await author.deleteOne();
+  res.json({ message: `Author "${author.name}" deleted` });
+});
