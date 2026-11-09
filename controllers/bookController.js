@@ -12,9 +12,36 @@ const pickBookFields = (body = {}) =>
   );
 
 // ===== Business rules: START =====
+const MIN_PUBLISHED_YEAR = 1450;
+
+// 422: the data is well-formed but breaks a business rule the schema cannot express.
+const assertBusinessRules = (book) => {
+  const problems = [];
+  const currentYear = new Date().getFullYear();
+
+  if (!(book.price > 0)) {
+    problems.push('price must be greater than 0');
+  }
+
+  if (!Number.isInteger(book.publishedYear)) {
+    problems.push('publishedYear must be a whole number');
+  } else if (book.publishedYear > currentYear) {
+    problems.push(`publishedYear cannot be in the future (latest allowed year is ${currentYear})`);
+  } else if (book.publishedYear < MIN_PUBLISHED_YEAR) {
+    problems.push(`publishedYear cannot be before ${MIN_PUBLISHED_YEAR}`);
+  }
+
+  if (problems.length > 0) {
+    throw new HttpError(422, problems.join('. '));
+  }
+};
+
 const assertBookIsAllowed = async (book) => {
   // 400: required fields present and types correct
   await book.validate();
+
+  // 422: price and publishedYear rules
+  assertBusinessRules(book);
 
   // 400: the author must really exist (no orphan books)
   const authorExists = await Author.exists({ _id: book.author });
