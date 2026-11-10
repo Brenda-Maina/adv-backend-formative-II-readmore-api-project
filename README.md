@@ -198,3 +198,53 @@ Submit a **a Github repository link** containing your project code. The reposito
 
 Good luck — build it one endpoint at a time, and test each in your API client before moving on.
 ---
+
+---
+
+# My Implementation
+
+## Run it
+```bash
+npm install
+cp .env.example .env     # then put your real MongoDB connection string in .env
+npm run dev
+```
+Manual test requests are in `requests.http` (VS Code REST Client extension).
+
+## Structure
+- `models/` Author and Book schemas
+- `controllers/` all logic, rules and status codes
+- `routes/` URL to controller wiring only
+- `middleware/` async wrapper and central error handler
+- `utils/` `HttpError` class
+
+## Endpoints
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/` | Health check |
+| POST / GET | `/authors` | Create / list authors |
+| GET / PUT / DELETE | `/authors/:id` | Read / update / delete an author |
+| GET | `/authors/:id/books` | All books by an author |
+| GET | `/authors/:id/stats` | Book count, average price, cheapest, most expensive |
+| POST / GET | `/books` | Create / search, filter, sort and paginate books |
+| GET / PUT / DELETE | `/books/:id` | Read / update / delete a book |
+
+`GET /books` query params: `genre`, `author`, `search`, `minPrice`, `maxPrice`, `sort` (price, title, publishedYear), `order` (asc, desc), `page`, `limit`. All are optional and combinable. The response is `{ page, limit, total, totalPages, results }`.
+
+## Status codes
+| Code | When |
+|---|---|
+| 400 | Missing or invalid fields, malformed id, unknown author id (orphan book), bad query params |
+| 404 | Author or book id not found |
+| 409 | Duplicate title for the same author, or deleting an author who still has books |
+| 422 | price <= 0, or publishedYear in the future or before 1450 |
+
+Check order when saving a book: shape (400), business rules (422), author exists (400), duplicate title (409).
+
+## Design decisions
+- **Orphans:** `required` only checks a value is present, so the controller looks the author up.
+- **Duplicate titles:** case-insensitive, per author. A controller check gives a friendly 409, and a unique collation index on `{author, title}` backs it up against simultaneous requests.
+- **Author delete policy: Option A (block with 409).** A real bookstore keeps sales and order history tied to books. Cascading would destroy that data, and reassigning would attribute books to the wrong author. Downside: staff must delete or move an author's books manually first. There is also a tiny race window between the check and the delete.
+- **Stats with no books:** `bookCount: 0` and `null` for price-based fields (0 would wrongly say the books are free).
+- **Malformed ids** return 400; well-formed ids that do not exist return 404.
+- **PUT** is partial: only the fields sent are changed, and all rules still apply.
